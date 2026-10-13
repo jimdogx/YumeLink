@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" alt="YumeLink Logo" width="140">
+</p>
+
 # YumeLink (夢Link)
 
 YumeLink is a fast, privacy-first mobile companion application for Honda and Acura EV owners. It provides real-time vehicle dashboard telemetry and offers a streamlined, native Android alternative to official OEM apps.
