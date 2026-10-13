@@ -21,6 +21,6 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "logue"
+rootProject.name = "YumeLink"
 include(":app")
 include(":wear")

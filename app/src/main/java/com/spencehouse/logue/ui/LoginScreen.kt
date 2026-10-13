@@ -46,7 +46,7 @@ fun LoginScreen(
         verticalArrangement = Arrangement.Center
     ) {
         Text(
-            text = "Logue Login",
+            text = "YumeLink Login",
             fontSize = 30.sp,
             fontWeight = FontWeight.Bold,
             modifier = Modifier.padding(bottom = 32.dp)
