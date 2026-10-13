@@ -1,24 +1,26 @@
-# Logue
+# YumeLink (夢Link)
 
-Logue is a mobile-first companion application for Honda and Acura EV owners. It provides real-time dashboard data and offers a streamlined, native Android alternative to official apps.
+YumeLink is a fast, privacy-first mobile companion application for Honda and Acura EV owners. It provides real-time vehicle dashboard telemetry and offers a streamlined, native Android alternative to official OEM apps.
+
+Inspired by Honda’s iconic slogan **"The Power of Dreams"** (*Yume* / Dream in Japanese), YumeLink connects you directly to your vehicle with instant responsiveness for charging, climate control, and remote access.
 
 <p align="center">
-  <img src="assets/screenshot.png" alt="Logue App Screenshot" width="400">
-  <img src="assets/screenshot-2.png" alt="Logue App Clarity Screenshot" width="400">
-  <img src="assets/screenshot-3.png" alt="Logue App Clarity Screenshot" width="400">
+  <img src="assets/screenshot.png" alt="YumeLink App Screenshot" width="400">
+  <img src="assets/screenshot-2.png" alt="YumeLink App Clarity Screenshot" width="400">
+  <img src="assets/screenshot-3.png" alt="YumeLink App Clarity Screenshot" width="400">
 </p>
 
 ## Credits & Inspiration
-This project stands on the shoulders of giants:
+This project is an open-source fork standing on the shoulders of giants:
+- **[Logue](https://github.com/mcspencehouse/logue-app-kotlin)**: The foundational native Android client created by **mcspencehouse**.
 - **[honstar-mqtt](https://github.com/tsightler/honstar-mqtt)**: A critical resource for understanding the Honda/Acura API and MQTT integration via AWS IoT Core.
-- **[Relink](https://get-relink.app/)**: An iOS app by reddit user **ThierryBuc** that served as as inspiration for this project.
-
+- **[Relink](https://get-relink.app/)**: An iOS app by reddit user **ThierryBuc** that served as inspiration for the ecosystem.
 
 ## Features (varies by model)
 
 ### Real-Time Dashboard
 - **Battery & Range**: Instant visibility into State of Charge (SoC) and remaining EV range.
-- **Charging Status**: Detailed information on plug status, and charge completion ETA.
+- **Charging Status**: Detailed information on plug status and charge completion ETA.
 - **Tire Pressures**: Real-time PSI/kPa monitoring for all four tires.
 - **Odometer**: Current vehicle mileage tracking.
 
@@ -37,11 +39,11 @@ This project stands on the shoulders of giants:
 ## Installation & Setup
 
 ### Option 1: Install the Android APK (Recommended)
-The easiest way to get Logue on your device is to download the latest release:
-1.  Navigate to the **[Releases](https://github.com/jimdogx/logue-app-kotlin/releases)** page of this repository.
-2.  Download the `.apk` file to your Android device.
-3.  Open the file and follow the prompts to install. 
-    *Note: You may need to enable "Install from unknown sources" in your device settings.*
+The easiest way to get YumeLink on your device is to download the latest release:
+1. Navigate to the **[Releases](https://github.com/jimdogx/logue-app-kotlin/releases)** page of this repository.
+2. Download the `.apk` file to your Android device.
+3. Open the file and follow the prompts to install.  
+   *Note: You may need to enable "Install from unknown sources" in your device settings.*
 
 ### Option 2: Building from Source (Advanced)
 If you prefer to run the app in development mode or build your own APK:
@@ -53,31 +55,27 @@ If you prefer to run the app in development mode or build your own APK:
 #### Setup
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/mcspencehouse/logue-app-kotlin.git
+   git clone https://github.com/jimdogx/logue-app-kotlin.git
    cd logue-app-kotlin
    ```
 
 2. **Open in Android Studio**:
-    Open the cloned project in Android Studio.
+   Open the cloned project in Android Studio.
 
 3. **Run the app**:
-    Build and run the app on your device or emulator.
+   Build and run the app on your device or emulator.
 
 ## Security & Privacy
 
-**Logue is designed with a "Privacy First" architecture:**
+**YumeLink is designed with a "Privacy First" architecture:**
 
 - **Zero External Tracking**: This application does not send your data, login credentials, or vehicle information to any third-party infrastructure. All communication is directly between the app and the official Honda/Acura API.
 - **Local Credential Storage**: Your HondaLink credentials and vehicle PIN are stored exclusively on your device. We use Android's `EncryptedSharedPreferences` for storage.
-- **Encryption**: Sensitive data (passwords, PINs) are encrypted at rest using **AES256-GCM**. 
-
-## Development Note
-
-This project was developed using a "vibe coding" approach—leveraging advanced AI pair programming to rapidly iterate and implement complex vehicle integration logic. While AI-assisted, the focus remains on technical reliability and a clean user experience.
+- **Encryption**: Sensitive data (passwords, PINs) are encrypted at rest using **AES256-GCM**.
 
 ## License
 
 This project is licensed under the MIT License.
 
 ---
-*Disclaimer: This app is not affiliated with American Honda Motor Co., Inc. Use remote commands responsibly.*
+*Disclaimer: This app is an independent open-source project and is not affiliated with, endorsed by, or sponsored by American Honda Motor Co., Inc. Use remote vehicle commands responsibly.*

@@ -1117,10 +1117,10 @@ fun SettingsDialog(
                 
                 HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
                 
-                Text("Logue App", style = MaterialTheme.typography.titleMedium)
+                Text("YumeLink", style = MaterialTheme.typography.titleMedium)
                 Text("Version ${BuildConfig.VERSION_NAME}", style = MaterialTheme.typography.bodySmall)
                 Spacer(modifier = Modifier.height(8.dp))
-                Text("Logue is an open-source alternative client for Honda and Acura connected vehicles.")
+                Text("YumeLink is an open-source alternative client for Honda and Acura connected vehicles.")
                 Spacer(modifier = Modifier.height(8.dp))
                 Text("Please note that some commands and statuses may take up to 30 seconds to update, as the vehicle checks for new commands periodically.", style = MaterialTheme.typography.bodySmall)
                 Spacer(modifier = Modifier.height(16.dp))
