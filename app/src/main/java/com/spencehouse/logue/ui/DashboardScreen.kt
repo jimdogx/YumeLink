@@ -1129,11 +1129,11 @@ fun SettingsDialog(
                 Text("Please note that some commands and statuses may take up to 30 seconds to update, as the vehicle checks for new commands periodically.", style = MaterialTheme.typography.bodySmall)
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    text = "Developed by mcspencehouse",
+                    text = "JimDogX",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.clickable { 
-                        uriHandler.openUri("https://github.com/mcspencehouse/logue-app-kotlin")
+                        uriHandler.openUri("https://github.com/jimdogx/yumelink")
                     }
                 )
 
