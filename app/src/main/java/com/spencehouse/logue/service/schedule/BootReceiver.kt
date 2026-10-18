@@ -16,19 +16,21 @@ class BootReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
         val action = intent?.action
         if (action == Intent.ACTION_BOOT_COMPLETED || action == Intent.ACTION_MY_PACKAGE_REPLACED) {
-            Log.i(TAG, "Device booted or app replaced ($action). Restoring active scheduled charge alarms.")
+            Log.i(TAG, "Device booted or app replaced ($action). Restoring active scheduled alarms.")
             try {
                 val entryPoint = EntryPointAccessors.fromApplication(
                     context.applicationContext,
                     ScheduledChargeEntryPoint::class.java,
                 )
                 val authService = entryPoint.authService()
-                val manager = entryPoint.scheduledChargeManager()
+                val chargeManager = entryPoint.scheduledChargeManager()
+                val climateManager = entryPoint.scheduledClimateManager()
 
                 val vin = authService.selectedVin ?: authService.sessionManager.vin
                 if (!vin.isNullOrEmpty()) {
-                    Log.i(TAG, "Restoring charge alarm for VIN: $vin")
-                    manager.scheduleNextAlarm(vin)
+                    Log.i(TAG, "Restoring charge and climate alarms for VIN: $vin")
+                    chargeManager.scheduleNextAlarm(vin)
+                    climateManager.scheduleNextAlarm(vin)
                 } else {
                     Log.d(TAG, "No active VIN found on boot to restore alarms.")
                 }

@@ -58,6 +58,7 @@ import kotlin.math.sin
 fun DashboardScreen(
     onLogout: () -> Unit,
     onNavigateToScheduleCharging: () -> Unit = {},
+    onNavigateToScheduleClimate: () -> Unit = {},
     viewModel: DashboardViewModel = hiltViewModel()
 ) {
     val uiState = viewModel.uiState
@@ -335,12 +336,14 @@ fun DashboardScreen(
                             insideTempIsCelsius = uiState.insideTempIsCelsius,
                             outsideTempIsCelsius = uiState.outsideTempIsCelsius,
                             showTemperaturePicker = !isClarityPhev,
+                            scheduleSummary = uiState.scheduledClimateSummary,
                             onStart = { temp ->
                                 executeOrShowPin("Start Climate") { pin -> viewModel.startClimate(pin, temp) }
                             },
                             onStop = {
                                 executeOrShowPin("Stop Climate") { pin -> viewModel.stopClimate(pin) }
-                            }
+                            },
+                            onScheduleClimate = onNavigateToScheduleClimate,
                         )
                     }
 
@@ -736,8 +739,10 @@ fun ClimateControl(
     insideTempIsCelsius: Boolean = false,
     outsideTempIsCelsius: Boolean = false,
     showTemperaturePicker: Boolean = true,
+    scheduleSummary: String? = null,
     onStart: (Int) -> Unit,
-    onStop: () -> Unit
+    onStop: () -> Unit,
+    onScheduleClimate: () -> Unit = {}
 ) {
     var temp by remember(useCelsius) { mutableIntStateOf(if (useCelsius) 22 else 72) }
     val isOn = status != "OFF"
@@ -827,6 +832,44 @@ fun ClimateControl(
                 Icon(Icons.Default.PowerSettingsNew, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(if (isOn) "STOP CLIMATE" else "START CLIMATE")
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            OutlinedButton(
+                onClick = onScheduleClimate,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    Icons.Default.Schedule,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("SCHEDULE CLIMATE")
+            }
+
+            if (!scheduleSummary.isNullOrEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.AccessTime,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = scheduleSummary,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
         }
     }

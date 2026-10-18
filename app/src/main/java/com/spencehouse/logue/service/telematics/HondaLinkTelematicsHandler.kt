@@ -269,8 +269,10 @@ class HondaLinkTelematicsHandler @Inject constructor(
                                 batteryPercentage = bat,
                                 range = rng,
                                 gasRange = gasRng,
-                                insideTempFahrenheit = sessionManager.cachedInsideTempFahrenheit,
-                                outsideTempFahrenheit = sessionManager.cachedOutsideTempFahrenheit,
+                                insideTemp = sessionManager.cachedInsideTemp,
+                                insideTempIsCelsius = sessionManager.cachedInsideTempIsCelsius,
+                                outsideTemp = sessionManager.cachedOutsideTemp,
+                                outsideTempIsCelsius = sessionManager.cachedOutsideTempIsCelsius,
                             ),
                         )
                     } else {
@@ -285,18 +287,14 @@ class HondaLinkTelematicsHandler @Inject constructor(
         }
     }
 
-    private fun parseTempFahrenheit(tempObj: JsonObject?): Int? {
+    private fun parseTempWithUnit(tempObj: JsonObject?): Pair<Int, Boolean>? {
         if (tempObj == null) return null
         val validStr = tempObj["valid"]?.jsonPrimitive?.content?.lowercase(Locale.US)
         if (validStr != null && validStr != "true" && validStr != "1") return null
-        val rawVal = tempObj["value"]?.jsonPrimitive?.doubleOrNull ?: return null
+        val rawVal = tempObj["value"]?.jsonPrimitive?.doubleOrNull?.roundToInt() ?: return null
         val unit = tempObj["unit"]?.jsonPrimitive?.content?.trim()?.lowercase(Locale.US)
         val isCelsius = unit != null && unit.startsWith("c")
-        return if (isCelsius) {
-            ((rawVal * 9.0 / 5.0) + 32.0).roundToInt()
-        } else {
-            rawVal.roundToInt()
-        }
+        return rawVal to isCelsius
     }
 
     private fun parseDashboardMetrics(jsonObject: JsonObject): DashboardData? {
@@ -397,17 +395,19 @@ class HondaLinkTelematicsHandler @Inject constructor(
                 }
             }
 
-            val insideTempF = parseTempFahrenheit(vehicleInfo?.get("intTemp")?.jsonObject)
-                ?: parseTempFahrenheit(responseBody["temperature"]?.jsonObject?.get("cabin")?.jsonObject)
-            val outsideTempF = parseTempFahrenheit(vehicleInfo?.get("extTemp")?.jsonObject)
-                ?: parseTempFahrenheit(responseBody["temperature"]?.jsonObject?.get("outside")?.jsonObject)
-                ?: parseTempFahrenheit(responseBody["temperature"]?.jsonObject?.get("exterior")?.jsonObject)
+            val insideParsed = parseTempWithUnit(vehicleInfo?.get("intTemp")?.jsonObject)
+                ?: parseTempWithUnit(responseBody["temperature"]?.jsonObject?.get("cabin")?.jsonObject)
+            val outsideParsed = parseTempWithUnit(vehicleInfo?.get("extTemp")?.jsonObject)
+                ?: parseTempWithUnit(responseBody["temperature"]?.jsonObject?.get("outside")?.jsonObject)
+                ?: parseTempWithUnit(responseBody["temperature"]?.jsonObject?.get("exterior")?.jsonObject)
 
-            if (insideTempF != null) {
-                sessionManager.cachedInsideTempFahrenheit = insideTempF
+            if (insideParsed != null) {
+                sessionManager.cachedInsideTemp = insideParsed.first
+                sessionManager.cachedInsideTempIsCelsius = insideParsed.second
             }
-            if (outsideTempF != null) {
-                sessionManager.cachedOutsideTempFahrenheit = outsideTempF
+            if (outsideParsed != null) {
+                sessionManager.cachedOutsideTemp = outsideParsed.first
+                sessionManager.cachedOutsideTempIsCelsius = outsideParsed.second
             }
 
             if (gasRange != null) {
@@ -421,8 +421,10 @@ class HondaLinkTelematicsHandler @Inject constructor(
                     batteryPercentage = battery,
                     range = range,
                     gasRange = gasRange,
-                    insideTempFahrenheit = insideTempF ?: sessionManager.cachedInsideTempFahrenheit,
-                    outsideTempFahrenheit = outsideTempF ?: sessionManager.cachedOutsideTempFahrenheit,
+                    insideTemp = insideParsed?.first ?: sessionManager.cachedInsideTemp,
+                    insideTempIsCelsius = insideParsed?.second ?: sessionManager.cachedInsideTempIsCelsius,
+                    outsideTemp = outsideParsed?.first ?: sessionManager.cachedOutsideTemp,
+                    outsideTempIsCelsius = outsideParsed?.second ?: sessionManager.cachedOutsideTempIsCelsius,
                 )
             } else {
                 null

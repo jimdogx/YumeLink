@@ -222,4 +222,122 @@ class ScheduleModelsTest {
         val decodedDisabledNotif = json.decodeFromString<WeeklyChargeSchedule>(json.encodeToString(disabledNotifSchedule))
         assertFalse(decodedDisabledNotif.notificationsEnabled)
     }
+
+    @Test
+    fun testDefaultWeeklyClimateSchedule() {
+        val days = defaultWeeklyClimateSchedule()
+        assertEquals(7, days.size)
+        assertTrue(days.all { !it.enabled })
+        assertTrue(days.all { it.slots.size == 2 })
+        assertTrue(days.all { it.slots[0].hour == 7 && it.slots[0].minute == 30 && it.slots[0].enabled })
+        assertTrue(days.all { it.slots[1].hour == 17 && it.slots[1].minute == 0 && !it.slots[1].enabled })
+    }
+
+    @Test
+    fun testClimateGetNextEvent_multipleStartsInSameDay() {
+        // Monday at 6:00 AM
+        val nowCal = Calendar.getInstance().apply {
+            set(Calendar.DAY_OF_WEEK, Calendar.MONDAY)
+            set(Calendar.HOUR_OF_DAY, 6)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+
+        val mondaySlots = listOf(
+            ClimateTimeSlot(id = 1, hour = 7, minute = 30, enabled = true),
+            ClimateTimeSlot(id = 2, hour = 17, minute = 0, enabled = true),
+            ClimateTimeSlot(id = 3, hour = 21, minute = 15, enabled = true),
+        )
+        val days = defaultWeeklyClimateSchedule().map {
+            if (it.dayOfWeek == Calendar.MONDAY) {
+                it.copy(enabled = true, slots = mondaySlots)
+            } else it
+        }
+        val schedule = WeeklyClimateSchedule(
+            vin = "VIN123",
+            isScheduleEnabled = true,
+            days = days,
+        )
+
+        // 1. At 6:00 AM, next event should be Slot 1 (7:30 AM)
+        val firstEvent = schedule.getNextEvent(nowCal.timeInMillis)
+        assertNotNull(firstEvent)
+        assertEquals(1, firstEvent!!.slotId)
+        assertEquals(7, firstEvent.targetHour)
+        assertEquals(30, firstEvent.targetMinute)
+
+        // 2. At 8:00 AM (after 7:30 AM), next event should be Slot 2 (5:00 PM) on the same day
+        val afterFirstCal = (nowCal.clone() as Calendar).apply {
+            set(Calendar.HOUR_OF_DAY, 8)
+            set(Calendar.MINUTE, 0)
+        }
+        val secondEvent = schedule.getNextEvent(afterFirstCal.timeInMillis)
+        assertNotNull(secondEvent)
+        assertEquals(2, secondEvent!!.slotId)
+        assertEquals(Calendar.MONDAY, secondEvent.dayOfWeek)
+        assertEquals(17, secondEvent.targetHour)
+        assertEquals(0, secondEvent.targetMinute)
+
+        // 3. At 6:00 PM (after 5:00 PM), next event should be Slot 3 (9:15 PM) on the same day
+        val afterSecondCal = (nowCal.clone() as Calendar).apply {
+            set(Calendar.HOUR_OF_DAY, 18)
+            set(Calendar.MINUTE, 0)
+        }
+        val thirdEvent = schedule.getNextEvent(afterSecondCal.timeInMillis)
+        assertNotNull(thirdEvent)
+        assertEquals(3, thirdEvent!!.slotId)
+        assertEquals(Calendar.MONDAY, thirdEvent.dayOfWeek)
+        assertEquals(21, thirdEvent.targetHour)
+        assertEquals(15, thirdEvent.targetMinute)
+
+        // 4. At 10:00 PM (after all Monday slots), next event should wrap to next Monday at 7:30 AM
+        val afterThirdCal = (nowCal.clone() as Calendar).apply {
+            set(Calendar.HOUR_OF_DAY, 22)
+            set(Calendar.MINUTE, 0)
+        }
+        val nextWeekEvent = schedule.getNextEvent(afterThirdCal.timeInMillis)
+        assertNotNull(nextWeekEvent)
+        assertEquals(1, nextWeekEvent!!.slotId)
+        assertEquals(Calendar.MONDAY, nextWeekEvent.dayOfWeek)
+        assertEquals(7, nextWeekEvent.targetHour)
+        assertEquals(30, nextWeekEvent.targetMinute)
+    }
+
+    @Test
+    fun testClimateScheduleSerialization() {
+        val schedule = WeeklyClimateSchedule(
+            vin = "1HGBF1E38JA000001",
+            isScheduleEnabled = true,
+            notificationsEnabled = true,
+            targetTemperatureFahrenheit = 70,
+            targetTemperatureCelsius = 21,
+            days = defaultWeeklyClimateSchedule().mapIndexed { index, day ->
+                if (index == 1) {
+                    day.copy(
+                        enabled = true,
+                        slots = listOf(
+                            ClimateTimeSlot(id = 1, hour = 7, minute = 15, enabled = true),
+                            ClimateTimeSlot(id = 2, hour = 16, minute = 45, enabled = true),
+                        ),
+                    )
+                } else day
+            },
+        )
+
+        val jsonStr = json.encodeToString(schedule)
+        val decoded = json.decodeFromString<WeeklyClimateSchedule>(jsonStr)
+
+        assertEquals(schedule.vin, decoded.vin)
+        assertTrue(decoded.isScheduleEnabled)
+        assertEquals(70, decoded.targetTemperatureFahrenheit)
+        assertEquals(21, decoded.targetTemperatureCelsius)
+        assertTrue(decoded.days[1].enabled)
+        assertEquals(2, decoded.days[1].slots.size)
+        assertEquals(7, decoded.days[1].slots[0].hour)
+        assertEquals(15, decoded.days[1].slots[0].minute)
+        assertTrue(decoded.days[1].slots[1].enabled)
+        assertEquals(16, decoded.days[1].slots[1].hour)
+        assertEquals(45, decoded.days[1].slots[1].minute)
+    }
 }

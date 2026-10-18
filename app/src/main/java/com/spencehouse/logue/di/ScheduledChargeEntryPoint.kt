@@ -3,6 +3,7 @@ package com.spencehouse.logue.di
 import com.spencehouse.logue.service.AuthService
 import com.spencehouse.logue.service.VehicleService
 import com.spencehouse.logue.service.schedule.ScheduledChargeManager
+import com.spencehouse.logue.service.schedule.ScheduledClimateManager
 import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
@@ -11,6 +12,7 @@ import dagger.hilt.components.SingletonComponent
 @InstallIn(SingletonComponent::class)
 interface ScheduledChargeEntryPoint {
     fun scheduledChargeManager(): ScheduledChargeManager
+    fun scheduledClimateManager(): ScheduledClimateManager
     fun vehicleService(): VehicleService
     fun authService(): AuthService
 }

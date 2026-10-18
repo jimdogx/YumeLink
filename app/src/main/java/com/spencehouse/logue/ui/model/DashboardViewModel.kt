@@ -14,6 +14,7 @@ import com.spencehouse.logue.service.VehicleService
 import com.spencehouse.logue.service.WearableSyncManager
 import com.spencehouse.logue.service.mqtt.AwsMqttClient
 import com.spencehouse.logue.service.schedule.ScheduledChargeManager
+import com.spencehouse.logue.service.schedule.ScheduledClimateManager
 import com.spencehouse.logue.widget.BatteryWidget
 import com.spencehouse.logue.widget.ClimateWidget
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -41,6 +42,7 @@ class DashboardViewModel @Inject constructor(
     private val vehicleService: VehicleService,
     private val wearableSyncManager: WearableSyncManager,
     private val scheduledChargeManager: ScheduledChargeManager,
+    private val scheduledClimateManager: ScheduledClimateManager,
 ) : ViewModel() {
 
     private val tag = "DashboardViewModel"
@@ -88,11 +90,12 @@ class DashboardViewModel @Inject constructor(
                 useKpa = authService.sessionManager.useKpa,
                 savedPin = authService.sessionManager.pin,
                 gasRange = authService.sessionManager.cachedGasRange.takeIf { it >= 0 },
-                insideTemp = authService.sessionManager.cachedInsideTempFahrenheit,
-                outsideTemp = authService.sessionManager.cachedOutsideTempFahrenheit,
-                insideTempIsCelsius = false,
-                outsideTempIsCelsius = false,
+                insideTemp = authService.sessionManager.cachedInsideTemp,
+                outsideTemp = authService.sessionManager.cachedOutsideTemp,
+                insideTempIsCelsius = authService.sessionManager.cachedInsideTempIsCelsius,
+                outsideTempIsCelsius = authService.sessionManager.cachedOutsideTempIsCelsius,
                 scheduledChargeSummary = authService.selectedVin?.let { scheduledChargeManager.getScheduleSummary(it) },
+                scheduledClimateSummary = authService.selectedVin?.let { scheduledClimateManager.getScheduleSummary(it) },
             )
 
             if (isEv) {
@@ -345,13 +348,6 @@ class DashboardViewModel @Inject constructor(
             uiState.outsideTempIsCelsius
         }
 
-        val insideTempInF = parsedInsideTemp?.let {
-            convertTemperature(it, sourceIsCelsius = insideTempIsCelsius, targetIsCelsius = false)
-        }
-        val outsideTempInF = parsedOutsideTemp?.let {
-            convertTemperature(it, sourceIsCelsius = outsideTempIsCelsius, targetIsCelsius = false)
-        }
-
         val parsedOdometer = odometerData?.optString("value")?.toDoubleOrNull()?.roundToInt()
             ?: odometerData?.optInt("value")?.takeIf { it > 0 }
         val odometerVal = parsedOdometer ?: uiState.odometer
@@ -380,11 +376,13 @@ class DashboardViewModel @Inject constructor(
         if (gasRangeInMiles != null) {
             authService.sessionManager.cachedGasRange = gasRangeInMiles
         }
-        if (insideTempInF != null) {
-            authService.sessionManager.cachedInsideTempFahrenheit = insideTempInF
+        if (parsedInsideTemp != null) {
+            authService.sessionManager.cachedInsideTemp = parsedInsideTemp
+            authService.sessionManager.cachedInsideTempIsCelsius = insideTempIsCelsius
         }
-        if (outsideTempInF != null) {
-            authService.sessionManager.cachedOutsideTempFahrenheit = outsideTempInF
+        if (parsedOutsideTemp != null) {
+            authService.sessionManager.cachedOutsideTemp = parsedOutsideTemp
+            authService.sessionManager.cachedOutsideTempIsCelsius = outsideTempIsCelsius
         }
         authService.sessionManager.cachedChargeStatus = mainStatus
         authService.sessionManager.cachedIsPluggedIn = isPluggedIn
@@ -713,8 +711,10 @@ class DashboardViewModel @Inject constructor(
 
         // This was the missing link - update persistent storage!
         authService.updateSelectedVin(vin)
-        authService.sessionManager.cachedInsideTempFahrenheit = null
-        authService.sessionManager.cachedOutsideTempFahrenheit = null
+        authService.sessionManager.cachedInsideTemp = null
+        authService.sessionManager.cachedOutsideTemp = null
+        authService.sessionManager.cachedInsideTempIsCelsius = false
+        authService.sessionManager.cachedOutsideTempIsCelsius = false
 
         val mappedVehicles = authService.vehicles.map {
             VehicleUiModel(
@@ -743,6 +743,7 @@ class DashboardViewModel @Inject constructor(
             statusText = if (isEv) "Switching vehicles..." else "Not an EV. OnStar must be active.",
             vehicles = mappedVehicles,
             scheduledChargeSummary = scheduledChargeManager.getScheduleSummary(vin),
+            scheduledClimateSummary = scheduledClimateManager.getScheduleSummary(vin),
         )
 
         if (isEv) {
@@ -753,7 +754,8 @@ class DashboardViewModel @Inject constructor(
     fun refreshScheduleSummary() {
         val vin = authService.selectedVin ?: return
         uiState = uiState.copy(
-            scheduledChargeSummary = scheduledChargeManager.getScheduleSummary(vin)
+            scheduledChargeSummary = scheduledChargeManager.getScheduleSummary(vin),
+            scheduledClimateSummary = scheduledClimateManager.getScheduleSummary(vin),
         )
     }
 

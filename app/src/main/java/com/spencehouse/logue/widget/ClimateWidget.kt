@@ -48,11 +48,19 @@ class ClimateWidget : GlanceAppWidget() {
             val useCelsius = sessionManager.useCelsius
             val unitSuffix = if (useCelsius) "°C" else "°F"
             val savedTemp = androidx.glance.currentState(TemperatureKey) ?: if (useCelsius) 22 else 72
-            val insideTemp = sessionManager.cachedInsideTempFahrenheit?.let {
-                DashboardViewModel.convertTemperature(it, sourceIsCelsius = false, targetIsCelsius = useCelsius)
+            val insideTemp = sessionManager.cachedInsideTemp?.let {
+                DashboardViewModel.convertTemperature(
+                    value = it,
+                    sourceIsCelsius = sessionManager.cachedInsideTempIsCelsius,
+                    targetIsCelsius = useCelsius,
+                )
             }
-            val outsideTemp = sessionManager.cachedOutsideTempFahrenheit?.let {
-                DashboardViewModel.convertTemperature(it, sourceIsCelsius = false, targetIsCelsius = useCelsius)
+            val outsideTemp = sessionManager.cachedOutsideTemp?.let {
+                DashboardViewModel.convertTemperature(
+                    value = it,
+                    sourceIsCelsius = sessionManager.cachedOutsideTempIsCelsius,
+                    targetIsCelsius = useCelsius,
+                )
             }
             val isClarityPhev = sessionManager.selectedModelCode?.uppercase()?.contains("CLARITY") == true ||
                 sessionManager.selectedModelCode?.uppercase()?.contains("PHEV") == true

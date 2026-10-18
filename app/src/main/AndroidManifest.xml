@@ -116,6 +116,14 @@
         </receiver>
 
         <receiver
+            android:name=".service.schedule.ScheduledClimateReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.spencehouse.logue.action.SCHEDULED_CLIMATE" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
             android:name=".service.schedule.BootReceiver"
             android:exported="true">
             <intent-filter>

@@ -51,4 +51,5 @@ data class DashboardUiState(
     val vehicleLocation: VehicleLocation? = null,
     val vehicleLocationError: String? = null,
     val scheduledChargeSummary: String? = null,
+    val scheduledClimateSummary: String? = null,
 )
