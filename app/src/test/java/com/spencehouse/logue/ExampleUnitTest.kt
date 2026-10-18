@@ -256,4 +256,52 @@ class ExampleUnitTest {
         // US vehicle reporting in miles: when useKilometers=true, convert miles -> km
         assertEquals(275, DashboardViewModel.convertDistance(171, sourceIsKm = false, targetIsKm = true))
     }
+
+    @Test
+    fun testTemperatureParsingAndConversion() {
+        val payload = """
+            {
+              "status": "success",
+              "responseBody": {
+                "evStatus": {
+                  "vehicleInfo": {
+                    "acStatus": {"valid": true, "value": "0"},
+                    "intTemp": {"unit": "F", "valid": true, "value": "75"},
+                    "extTemp": {"unit": "F", "valid": true, "value": "66.0"}
+                  }
+                }
+              }
+            }
+        """.trimIndent()
+
+        val json = JSONObject(payload)
+        val vehicleInfo = json.getJSONObject("responseBody")
+            .getJSONObject("evStatus")
+            .getJSONObject("vehicleInfo")
+
+        val intTempObj = vehicleInfo.optJSONObject("intTemp")?.takeIf { it.optBoolean("valid", true) }
+        val extTempObj = vehicleInfo.optJSONObject("extTemp")?.takeIf { it.optBoolean("valid", true) }
+
+        val insideTemp = intTempObj?.optString("value")?.toDoubleOrNull()?.toInt()
+        val outsideTemp = extTempObj?.optString("value")?.toDoubleOrNull()?.toInt()
+
+        assertEquals(75, insideTemp)
+        assertEquals(66, outsideTemp)
+        assertEquals(false, DashboardViewModel.isCelsiusUnit(intTempObj?.optString("unit")))
+        assertEquals(false, DashboardViewModel.isCelsiusUnit(extTempObj?.optString("unit")))
+        assertEquals(true, DashboardViewModel.isCelsiusUnit("C"))
+        assertEquals(true, DashboardViewModel.isCelsiusUnit("Cel"))
+        assertEquals(true, DashboardViewModel.isCelsiusUnit("Celsius"))
+        assertNull(DashboardViewModel.isCelsiusUnit("N/A"))
+
+        // Fahrenheit -> Fahrenheit (no conversion)
+        assertEquals(75, DashboardViewModel.convertTemperature(75, sourceIsCelsius = false, targetIsCelsius = false))
+        // Fahrenheit -> Celsius
+        assertEquals(24, DashboardViewModel.convertTemperature(75, sourceIsCelsius = false, targetIsCelsius = true))
+        assertEquals(19, DashboardViewModel.convertTemperature(66, sourceIsCelsius = false, targetIsCelsius = true))
+        // Celsius -> Fahrenheit
+        assertEquals(75, DashboardViewModel.convertTemperature(24, sourceIsCelsius = true, targetIsCelsius = false))
+        // Celsius -> Celsius (no conversion)
+        assertEquals(24, DashboardViewModel.convertTemperature(24, sourceIsCelsius = true, targetIsCelsius = true))
+    }
 }

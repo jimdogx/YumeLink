@@ -150,6 +150,26 @@ class SessionManager @Inject constructor(@ApplicationContext context: Context) {
         get() = sharedPreferences.getInt("cached_voltage", -1)
         set(value) = sharedPreferences.edit { putInt("cached_voltage", value) }
 
+    var cachedInsideTempFahrenheit: Int?
+        get() = if (sharedPreferences.contains("cached_inside_temp_f")) {
+            sharedPreferences.getInt("cached_inside_temp_f", 0)
+        } else {
+            null
+        }
+        set(value) = sharedPreferences.edit {
+            if (value != null) putInt("cached_inside_temp_f", value) else remove("cached_inside_temp_f")
+        }
+
+    var cachedOutsideTempFahrenheit: Int?
+        get() = if (sharedPreferences.contains("cached_outside_temp_f")) {
+            sharedPreferences.getInt("cached_outside_temp_f", 0)
+        } else {
+            null
+        }
+        set(value) = sharedPreferences.edit {
+            if (value != null) putInt("cached_outside_temp_f", value) else remove("cached_outside_temp_f")
+        }
+
     fun getWeeklyChargeScheduleJson(vin: String): String? {
         return sharedPreferences.getString("weekly_charge_schedule_$vin", null)
     }

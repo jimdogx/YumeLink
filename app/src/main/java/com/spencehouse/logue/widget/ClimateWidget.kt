@@ -33,6 +33,7 @@ import androidx.glance.Image
 import androidx.glance.ImageProvider
 import androidx.glance.ColorFilter
 import com.spencehouse.logue.R
+import com.spencehouse.logue.ui.model.DashboardViewModel
 import androidx.glance.text.TextAlign
 
 class ClimateWidget : GlanceAppWidget() {
@@ -44,7 +45,19 @@ class ClimateWidget : GlanceAppWidget() {
             val widgetStatus = prefs[ClimateStatusKey]
             val climateStatus = widgetStatus ?: sessionManager.cachedClimateStatus ?: "OFF"
             val isOn = climateStatus != "OFF"
-            val savedTemp = androidx.glance.currentState(TemperatureKey) ?: if (sessionManager.useCelsius) 22 else 72
+            val useCelsius = sessionManager.useCelsius
+            val unitSuffix = if (useCelsius) "°C" else "°F"
+            val savedTemp = androidx.glance.currentState(TemperatureKey) ?: if (useCelsius) 22 else 72
+            val insideTemp = sessionManager.cachedInsideTempFahrenheit?.let {
+                DashboardViewModel.convertTemperature(it, sourceIsCelsius = false, targetIsCelsius = useCelsius)
+            }
+            val outsideTemp = sessionManager.cachedOutsideTempFahrenheit?.let {
+                DashboardViewModel.convertTemperature(it, sourceIsCelsius = false, targetIsCelsius = useCelsius)
+            }
+            val isClarityPhev = sessionManager.selectedModelCode?.uppercase()?.contains("CLARITY") == true ||
+                sessionManager.selectedModelCode?.uppercase()?.contains("PHEV") == true
+            val showTemperaturePicker = !isClarityPhev
+
             GlanceTheme {
                 Column(
                     modifier = GlanceModifier.fillMaxSize()
@@ -68,21 +81,47 @@ class ClimateWidget : GlanceAppWidget() {
                                 color = GlanceTheme.colors.onSurfaceVariant,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium
-                            )
+                            ),
+                            modifier = GlanceModifier.defaultWeight()
                         )
+                        if (isOn && (insideTemp != null || outsideTemp != null)) {
+                            Text(
+                                text = climateStatus,
+                                style = TextStyle(
+                                    color = GlanceTheme.colors.error,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            )
+                        }
                     }
 
                     Spacer(modifier = GlanceModifier.defaultWeight())
 
-                    if (isOn) {
-                        Text(
-                            text = climateStatus,
-                            style = TextStyle(
-                                color = GlanceTheme.colors.error,
-                                fontSize = 28.sp,
-                                fontWeight = FontWeight.Bold
+                    if (isOn || !showTemperaturePicker) {
+                        if (insideTemp != null || outsideTemp != null) {
+                            Row(
+                                modifier = GlanceModifier.fillMaxWidth(),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                if (insideTemp != null) {
+                                    TempColumn("Inside", "$insideTemp$unitSuffix")
+                                }
+                                if (outsideTemp != null) {
+                                    TempColumn("Outside", "$outsideTemp$unitSuffix")
+                                }
+                            }
+                        } else {
+                            Text(
+                                text = climateStatus,
+                                style = TextStyle(
+                                    color = if (isOn) GlanceTheme.colors.error else GlanceTheme.colors.onSurface,
+                                    fontSize = 28.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             )
-                        )
+                        }
                     } else {
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally
@@ -103,7 +142,7 @@ class ClimateWidget : GlanceAppWidget() {
                             }
                             Spacer(modifier = GlanceModifier.height(8.dp))
                             Text(
-                                text = "$savedTemp${if (sessionManager.useCelsius) "°C" else "°F"}",
+                                text = "$savedTemp$unitSuffix",
                                 style = TextStyle(
                                     color = GlanceTheme.colors.onSurface,
                                     fontSize = 28.sp,
@@ -122,6 +161,21 @@ class ClimateWidget : GlanceAppWidget() {
                                         fontSize = 28.sp,
                                         fontWeight = FontWeight.Bold,
                                         textAlign = TextAlign.Center
+                                    )
+                                )
+                            }
+                            if (insideTemp != null || outsideTemp != null) {
+                                Spacer(modifier = GlanceModifier.height(4.dp))
+                                val summaryParts = buildList {
+                                    if (insideTemp != null) add("In: $insideTemp$unitSuffix")
+                                    if (outsideTemp != null) add("Out: $outsideTemp$unitSuffix")
+                                }
+                                Text(
+                                    text = summaryParts.joinToString(" · "),
+                                    style = TextStyle(
+                                        color = GlanceTheme.colors.onSurfaceVariant,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Medium
                                     )
                                 )
                             }
@@ -165,6 +219,31 @@ class ClimateWidget : GlanceAppWidget() {
             }
         }
     }
+
+    @androidx.compose.runtime.Composable
+    private fun RowScope.TempColumn(title: String, value: String) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier = GlanceModifier.defaultWeight()
+        ) {
+            Text(
+                text = title,
+                style = TextStyle(
+                    color = GlanceTheme.colors.onSurfaceVariant,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            )
+            Text(
+                text = value,
+                style = TextStyle(
+                    color = GlanceTheme.colors.onSurface,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            )
+        }
+    }
 }
 
 class StartClimateAction : ActionCallback {
@@ -172,8 +251,10 @@ class StartClimateAction : ActionCallback {
         val sessionManager = SessionManager(context)
         val pin = sessionManager.pin
         val vin = sessionManager.vin
+        val isClarityPhev = sessionManager.selectedModelCode?.uppercase()?.contains("CLARITY") == true ||
+            sessionManager.selectedModelCode?.uppercase()?.contains("PHEV") == true
 
-        if (pin.isNullOrEmpty() || vin.isNullOrEmpty()) {
+        if (vin.isNullOrEmpty() || (!isClarityPhev && pin.isNullOrEmpty())) {
             val intent = android.content.Intent(context, com.spencehouse.logue.MainActivity::class.java).apply {
                 flags = android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK
             }
@@ -197,7 +278,7 @@ class StartClimateAction : ActionCallback {
         }
         
         try {
-            vehicleService.startClimate(vin, pin, temp)
+            vehicleService.startClimate(vin, pin.orEmpty(), temp)
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -209,10 +290,11 @@ class StartClimateAction : ActionCallback {
         }
         ClimateWidget().update(context, glanceId)
         
-        // Poll for actual state change
+        // Poll for actual state change and temperature refresh
         for (i in 0..5) { // Poll every 5s for 30s
             kotlinx.coroutines.delay(5.seconds)
             try {
+                vehicleService.getDashboardData(vin)
                 val statusResult = vehicleService.getClimateStatus(vin)
                 if (statusResult.isSuccess) {
                     val statusObj = statusResult.getOrNull()
@@ -238,8 +320,10 @@ class StopClimateAction : ActionCallback {
         val sessionManager = SessionManager(context)
         val pin = sessionManager.pin
         val vin = sessionManager.vin
+        val isClarityPhev = sessionManager.selectedModelCode?.uppercase()?.contains("CLARITY") == true ||
+            sessionManager.selectedModelCode?.uppercase()?.contains("PHEV") == true
 
-        if (pin.isNullOrEmpty() || vin.isNullOrEmpty()) return
+        if (vin.isNullOrEmpty() || (!isClarityPhev && pin.isNullOrEmpty())) return
 
         val entryPoint = EntryPointAccessors.fromApplication(context, com.spencehouse.logue.di.WidgetModule.WidgetEntryPoint::class.java)
         val vehicleService = entryPoint.vehicleService()
@@ -256,10 +340,11 @@ class StopClimateAction : ActionCallback {
         }
         ClimateWidget().update(context, glanceId)
         
-        // Poll for actual state change
+        // Poll for actual state change and temperature refresh
         for (i in 0..5) { // Poll every 5s for 30s
             kotlinx.coroutines.delay(5.seconds)
             try {
+                vehicleService.getDashboardData(vin)
                 val statusResult = vehicleService.getClimateStatus(vin)
                 if (statusResult.isSuccess) {
                     val statusObj = statusResult.getOrNull()

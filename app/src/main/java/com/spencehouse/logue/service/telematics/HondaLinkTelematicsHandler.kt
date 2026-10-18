@@ -264,7 +264,15 @@ class HondaLinkTelematicsHandler @Inject constructor(
                     val rng = sessionManager.cachedRange
                     val gasRng = sessionManager.cachedGasRange.takeIf { it >= 0 }
                     if (bat >= 0 && rng >= 0) {
-                        Result.success(DashboardData(bat, rng, gasRng))
+                        Result.success(
+                            DashboardData(
+                                batteryPercentage = bat,
+                                range = rng,
+                                gasRange = gasRng,
+                                insideTempFahrenheit = sessionManager.cachedInsideTempFahrenheit,
+                                outsideTempFahrenheit = sessionManager.cachedOutsideTempFahrenheit,
+                            ),
+                        )
                     } else {
                         Result.failure(Exception("Dashboard refresh triggered (${it.requestId}), awaiting telemetry update"))
                     }
@@ -274,6 +282,20 @@ class HondaLinkTelematicsHandler @Inject constructor(
         } catch (e: Exception) {
             Log.e(tag, "Exception in HondaLink getDashboardData", e)
             Result.failure(e)
+        }
+    }
+
+    private fun parseTempFahrenheit(tempObj: JsonObject?): Int? {
+        if (tempObj == null) return null
+        val validStr = tempObj["valid"]?.jsonPrimitive?.content?.lowercase(Locale.US)
+        if (validStr != null && validStr != "true" && validStr != "1") return null
+        val rawVal = tempObj["value"]?.jsonPrimitive?.doubleOrNull ?: return null
+        val unit = tempObj["unit"]?.jsonPrimitive?.content?.trim()?.lowercase(Locale.US)
+        val isCelsius = unit != null && unit.startsWith("c")
+        return if (isCelsius) {
+            ((rawVal * 9.0 / 5.0) + 32.0).roundToInt()
+        } else {
+            rawVal.roundToInt()
         }
     }
 
@@ -375,6 +397,19 @@ class HondaLinkTelematicsHandler @Inject constructor(
                 }
             }
 
+            val insideTempF = parseTempFahrenheit(vehicleInfo?.get("intTemp")?.jsonObject)
+                ?: parseTempFahrenheit(responseBody["temperature"]?.jsonObject?.get("cabin")?.jsonObject)
+            val outsideTempF = parseTempFahrenheit(vehicleInfo?.get("extTemp")?.jsonObject)
+                ?: parseTempFahrenheit(responseBody["temperature"]?.jsonObject?.get("outside")?.jsonObject)
+                ?: parseTempFahrenheit(responseBody["temperature"]?.jsonObject?.get("exterior")?.jsonObject)
+
+            if (insideTempF != null) {
+                sessionManager.cachedInsideTempFahrenheit = insideTempF
+            }
+            if (outsideTempF != null) {
+                sessionManager.cachedOutsideTempFahrenheit = outsideTempF
+            }
+
             if (gasRange != null) {
                 sessionManager.cachedGasRange = gasRange
             }
@@ -382,7 +417,13 @@ class HondaLinkTelematicsHandler @Inject constructor(
             if (battery != null && range != null) {
                 sessionManager.cachedBatteryPercentage = battery
                 sessionManager.cachedRange = range
-                DashboardData(battery, range, gasRange)
+                DashboardData(
+                    batteryPercentage = battery,
+                    range = range,
+                    gasRange = gasRange,
+                    insideTempFahrenheit = insideTempF ?: sessionManager.cachedInsideTempFahrenheit,
+                    outsideTempFahrenheit = outsideTempF ?: sessionManager.cachedOutsideTempFahrenheit,
+                )
             } else {
                 null
             }

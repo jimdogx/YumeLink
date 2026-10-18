@@ -55,6 +55,8 @@ class VehicleUpdateWorker @AssistedInject constructor(
                 sessionManager.cachedBatteryPercentage = newBattery
                 sessionManager.cachedRange = data.range
                 data.gasRange?.let { sessionManager.cachedGasRange = it }
+                data.insideTempFahrenheit?.let { sessionManager.cachedInsideTempFahrenheit = it }
+                data.outsideTempFahrenheit?.let { sessionManager.cachedOutsideTempFahrenheit = it }
                 
                 // Check if charging target is reached
                 val target = sessionManager.targetChargeLevel
