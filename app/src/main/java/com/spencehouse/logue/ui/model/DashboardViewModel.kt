@@ -252,6 +252,23 @@ class DashboardViewModel @Inject constructor(
         val gasRangeVal = vehicleInfo?.optJSONObject("petRange")?.optString("value")?.toDoubleOrNull()?.roundToInt()
             ?: fuelLevel?.optJSONObject("driveRange")?.optDouble("value")?.takeIf { !it.isNaN() }?.toInt()
 
+        val odometerUnit = odometerData?.optString("unit")?.takeIf { it.isNotEmpty() }
+            ?: rb.optJSONObject("energyEfficiency")?.optJSONObject("odometer")?.optString("unit")?.takeIf { it.isNotEmpty() }
+
+        val rangeUnit = vehicleInfo?.optJSONObject("evRange")?.optString("unit")?.takeIf { it.isNotEmpty() }
+            ?: rb.optJSONObject("evRange")?.optString("unit")?.takeIf { it.isNotEmpty() }
+            ?: rb.optJSONObject("evDriveRange")?.optString("unit")?.takeIf { it.isNotEmpty() }
+            ?: rb.optJSONObject("estRangePerTCL")?.optString("unit")?.takeIf { it.isNotEmpty() }
+            ?: rb.optJSONObject("targetChargeLevelSettings")
+                ?.optJSONObject("projectedEVRangeGeneralAwayTargetChargeSet")
+                ?.optString("unit")?.takeIf { it.isNotEmpty() }
+            ?: fuelLevel?.optJSONObject("driveRange")?.optString("unit")?.takeIf { it.isNotEmpty() }
+            ?: odometerUnit
+
+        val gasRangeUnit = vehicleInfo?.optJSONObject("petRange")?.optString("unit")?.takeIf { it.isNotEmpty() }
+            ?: fuelLevel?.optJSONObject("driveRange")?.optString("unit")?.takeIf { it.isNotEmpty() }
+            ?: rangeUnit
+
         val chargeStatus = vehicleInfo?.optJSONObject("chargeStatus")?.optString("value")?.takeIf { it.isNotEmpty() }
             ?: evStatus?.optString("chargeStatus")?.takeIf { it.isNotEmpty() && !it.startsWith("{") }
             ?: evStatus?.optString("chgStatus")?.takeIf { it.isNotEmpty() }
@@ -301,14 +318,33 @@ class DashboardViewModel @Inject constructor(
             else -> uiState.climateStatus
         }
 
-        val odometerVal = odometerData?.optString("value")?.toDoubleOrNull()?.roundToInt()
+        val parsedOdometer = odometerData?.optString("value")?.toDoubleOrNull()?.roundToInt()
             ?: odometerData?.optInt("value")?.takeIf { it > 0 }
-            ?: uiState.odometer
+        val odometerVal = parsedOdometer ?: uiState.odometer
+
+        val odometerIsKm = if (parsedOdometer != null) {
+            isKilometersUnit(odometerUnit) ?: uiState.odometerIsKm
+        } else {
+            uiState.odometerIsKm
+        }
+        val rangeIsKm = if (rangeVal != null) {
+            isKilometersUnit(rangeUnit) ?: uiState.rangeIsKm
+        } else {
+            uiState.rangeIsKm
+        }
+        val gasRangeIsKm = if (gasRangeVal != null) {
+            isKilometersUnit(gasRangeUnit) ?: rangeIsKm
+        } else {
+            uiState.gasRangeIsKm
+        }
+
+        val rangeInMiles = rangeVal?.let { convertDistance(it, sourceIsKm = rangeIsKm, targetIsKm = false) }
+        val gasRangeInMiles = gasRangeVal?.let { convertDistance(it, sourceIsKm = gasRangeIsKm, targetIsKm = false) }
 
         authService.sessionManager.cachedBatteryPercentage = battery ?: -1
-        authService.sessionManager.cachedRange = rangeVal ?: -1
-        if (gasRangeVal != null) {
-            authService.sessionManager.cachedGasRange = gasRangeVal
+        authService.sessionManager.cachedRange = rangeInMiles ?: -1
+        if (gasRangeInMiles != null) {
+            authService.sessionManager.cachedGasRange = gasRangeInMiles
         }
         authService.sessionManager.cachedChargeStatus = mainStatus
         authService.sessionManager.cachedIsPluggedIn = isPluggedIn
@@ -324,12 +360,15 @@ class DashboardViewModel @Inject constructor(
             batteryPercentage = battery ?: uiState.batteryPercentage,
             range = rangeVal ?: uiState.range,
             gasRange = gasRangeVal ?: uiState.gasRange,
+            rangeIsKm = rangeIsKm,
+            gasRangeIsKm = gasRangeIsKm,
             chargeStatus = mainStatus,
             chargeVoltage = voltage,
             chargeCompletionTime = formatTime(chargeTime),
             isPluggedIn = isPluggedIn,
             targetChargeLevel = targetLevel,
             odometer = odometerVal,
+            odometerIsKm = odometerIsKm,
             tirePressures = if (tireStatus != null) parseTires(tireStatus) else uiState.tirePressures,
             vehicleLocation = updatedLocation,
             climateStatus = updatedClimate,
@@ -338,11 +377,11 @@ class DashboardViewModel @Inject constructor(
         )
 
         val vin = authService.selectedVin
-        if ((vin != null) && (battery != null) && (rangeVal != null)) {
+        if ((vin != null) && (battery != null) && (rangeInMiles != null)) {
             wearableSyncManager.syncVehicleTelemetry(
                 vin,
                 battery,
-                rangeVal,
+                rangeInMiles,
                 mainStatus,
                 targetLevel,
                 isPluggedIn,
@@ -394,6 +433,33 @@ class DashboardViewModel @Inject constructor(
     }
 
     companion object {
+        private const val KM_PER_MILE = 1.609344
+
+        /**
+         * Determines whether a HondaLink unit string represents kilometers (`true`),
+         * miles (`false`), or is unknown/unspecified (`null`).
+         */
+        fun isKilometersUnit(unit: String?): Boolean? {
+            val normalized = unit?.trim()?.lowercase(Locale.US) ?: return null
+            return when {
+                normalized.startsWith("km") || normalized.startsWith("kilo") -> true
+                normalized.startsWith("mi") -> false
+                else -> null
+            }
+        }
+
+        /**
+         * Converts a distance [value] from [sourceIsKm] to [targetIsKm] without
+         * double-converting when the source and target units already match.
+         */
+        fun convertDistance(value: Int, sourceIsKm: Boolean, targetIsKm: Boolean): Int {
+            return when {
+                sourceIsKm == targetIsKm -> value
+                targetIsKm -> (value * KM_PER_MILE).roundToInt()
+                else -> (value / KM_PER_MILE).roundToInt()
+            }
+        }
+
         fun formatChargeStatus(
             chargeStatus: String?,
             plugStatus: String?,

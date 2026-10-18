@@ -58,6 +58,14 @@ private data class MqttDashboardReported(
 @Serializable
 private data class ResponseBody(
     val evStatus: EvStatus,
+    val odometer: UnitValue? = null,
+    val estRangePerTCL: UnitValue? = null,
+)
+
+@Serializable
+private data class UnitValue(
+    val value: String? = null,
+    val unit: String? = null,
 )
 
 @Serializable
@@ -147,10 +155,17 @@ class UltiumEvTelematicsHandler @Inject constructor(
                     try {
                         Log.d("UltiumEvTelematics.getDashboardData", "Processing MQTT payload: $payload")
                         val response = tolerantJson.decodeFromString<MqttDashboardResponse>(payload)
-                        val evStatus = response.state.reported.responseBody.evStatus
+                        val rb = response.state.reported.responseBody
+                        val evStatus = rb.evStatus
 
-                        val batteryLevel = evStatus.soc.toIntOrNull()
-                        val range = evStatus.evRange.toDoubleOrNull()?.roundToInt()
+                        val batteryLevel = evStatus.soc.toDoubleOrNull()?.roundToInt() ?: evStatus.soc.toIntOrNull()
+                        val rawRange = evStatus.evRange.toDoubleOrNull()?.roundToInt()
+                        val rangeUnit = rb.estRangePerTCL?.unit?.takeIf { it.isNotEmpty() && !it.equals("N/A", ignoreCase = true) }
+                            ?: rb.odometer?.unit
+                        val isKm = rangeUnit?.trim()?.lowercase(Locale.US)?.let {
+                            it.startsWith("km") || it.startsWith("kilo")
+                        } ?: false
+                        val range = rawRange?.let { if (isKm) (it / 1.609344).roundToInt() else it }
                         val voltage = evStatus.chargerVoltage?.toIntOrNull()
                         val isPluggedIn = evStatus.isPluggedIn == "1"
 

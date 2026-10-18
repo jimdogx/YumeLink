@@ -232,4 +232,28 @@ class ExampleUnitTest {
         assertEquals(62, gasRange)
         assertEquals(111, (evRange ?: 0) + (gasRange ?: 0))
     }
+
+    @Test
+    fun testDistanceUnitDetectionAndConversion() {
+        assertEquals(false, DashboardViewModel.isKilometersUnit("Miles"))
+        assertEquals(false, DashboardViewModel.isKilometersUnit("mile"))
+        assertEquals(false, DashboardViewModel.isKilometersUnit("mi"))
+        assertEquals(true, DashboardViewModel.isKilometersUnit("Kilometers"))
+        assertEquals(true, DashboardViewModel.isKilometersUnit("Kilometres"))
+        assertEquals(true, DashboardViewModel.isKilometersUnit("km"))
+        assertEquals(true, DashboardViewModel.isKilometersUnit("KM"))
+        assertNull(DashboardViewModel.isKilometersUnit("N/A"))
+        assertNull(DashboardViewModel.isKilometersUnit(""))
+        assertNull(DashboardViewModel.isKilometersUnit(null))
+
+        // Canadian vehicle already reporting in km: when useKilometers=true, value must not be double-converted
+        assertEquals(15000, DashboardViewModel.convertDistance(15000, sourceIsKm = true, targetIsKm = true))
+        // Canadian vehicle reporting in km: when useKilometers=false, convert km -> miles
+        assertEquals(9321, DashboardViewModel.convertDistance(15000, sourceIsKm = true, targetIsKm = false))
+
+        // US vehicle reporting in miles: when useKilometers=false, value must not be converted
+        assertEquals(171, DashboardViewModel.convertDistance(171, sourceIsKm = false, targetIsKm = false))
+        // US vehicle reporting in miles: when useKilometers=true, convert miles -> km
+        assertEquals(275, DashboardViewModel.convertDistance(171, sourceIsKm = false, targetIsKm = true))
+    }
 }

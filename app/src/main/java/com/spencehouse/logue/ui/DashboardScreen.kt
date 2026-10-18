@@ -290,7 +290,10 @@ fun DashboardScreen(
                             percentage = uiState.batteryPercentage ?: 0,
                             range = uiState.range ?: 0,
                             gasRange = uiState.gasRange,
+                            rangeIsKm = uiState.rangeIsKm,
+                            gasRangeIsKm = uiState.gasRangeIsKm,
                             odometer = uiState.odometer ?: 0,
+                            odometerIsKm = uiState.odometerIsKm,
                             targetLimit = uiState.targetChargeLevel,
                             useKilometers = uiState.useKilometers,
                             chargeStatus = uiState.chargeStatus,
@@ -482,7 +485,10 @@ fun VehicleStatusCard(
     percentage: Int,
     range: Int,
     gasRange: Int? = null,
+    rangeIsKm: Boolean = false,
+    gasRangeIsKm: Boolean = false,
     odometer: Int,
+    odometerIsKm: Boolean = false,
     targetLimit: Int,
     useKilometers: Boolean,
     chargeStatus: String,
@@ -555,11 +561,15 @@ fun VehicleStatusCard(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            val displayRange = DashboardViewModel.convertDistance(range, sourceIsKm = rangeIsKm, targetIsKm = useKilometers)
+            val displayOdometer = DashboardViewModel.convertDistance(odometer, sourceIsKm = odometerIsKm, targetIsKm = useKilometers)
+
             if (gasRange != null && gasRange > 0) {
-                val totalRange = range + gasRange
-                val totalText = if (useKilometers) "${(totalRange * 1.609).toInt()} km total range" else "$totalRange miles total range"
-                val evText = if (useKilometers) "${(range * 1.609).toInt()} km electric" else "$range mi electric"
-                val gasText = if (useKilometers) "${(gasRange * 1.609).toInt()} km gas" else "$gasRange mi gas"
+                val displayGasRange = DashboardViewModel.convertDistance(gasRange, sourceIsKm = gasRangeIsKm, targetIsKm = useKilometers)
+                val totalRange = displayRange + displayGasRange
+                val totalText = if (useKilometers) "$totalRange km total range" else "$totalRange miles total range"
+                val evText = if (useKilometers) "$displayRange km electric" else "$displayRange mi electric"
+                val gasText = if (useKilometers) "$displayGasRange km gas" else "$displayGasRange mi gas"
 
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
@@ -577,7 +587,7 @@ fun VehicleStatusCard(
                 }
             } else {
                 Text(
-                    text = "${if (useKilometers) "${(range * 1.609).toInt()} km" else "$range miles"} range",
+                    text = "${if (useKilometers) "$displayRange km" else "$displayRange miles"} range",
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -592,7 +602,7 @@ fun VehicleStatusCard(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text("Odometer", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(
-                        if (useKilometers) "${(odometer * 1.609).toInt()} km" else "$odometer miles",
+                        if (useKilometers) "$displayOdometer km" else "$displayOdometer miles",
                         style = MaterialTheme.typography.bodyLarge,
                         fontWeight = FontWeight.SemiBold
                     )
