@@ -6,6 +6,7 @@ import android.content.Intent
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import androidx.glance.appwidget.updateAll
 import com.spencehouse.logue.MainActivity
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.*
@@ -66,8 +67,10 @@ class ClimateControlService : Service() {
     private fun stopClimate() {
         val vin = authService.selectedVin
         val pin = authService.sessionManager.pin
+        val isClarityPhev = authService.sessionManager.selectedModelCode?.uppercase()?.contains("CLARITY") == true ||
+            authService.sessionManager.selectedModelCode?.uppercase()?.contains("PHEV") == true
         
-        if (vin.isNullOrEmpty() || pin.isNullOrEmpty()) {
+        if (vin.isNullOrEmpty() || (!isClarityPhev && pin.isNullOrEmpty())) {
             Log.e(tag, "Missing VIN or PIN to stop climate")
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
@@ -76,10 +79,13 @@ class ClimateControlService : Service() {
 
         serviceScope.launch {
             Log.d(tag, "Stopping climate via API")
-            val result = vehicleService.stopClimate(vin, pin)
+            val result = vehicleService.stopClimate(vin, pin.orEmpty())
             result.onSuccess {
                 Log.d(tag, "Successfully stopped climate")
                 authService.sessionManager.cachedClimateStatus = "OFF"
+                try {
+                    com.spencehouse.logue.widget.ClimateWidget().updateAll(this@ClimateControlService)
+                } catch (_: Exception) {}
             }.onFailure {
                 Log.e(tag, "Failed to stop climate", it)
             }

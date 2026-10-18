@@ -330,6 +330,10 @@ fun DashboardScreen(
                         ClimateControl(
                             status = uiState.climateStatus,
                             useCelsius = uiState.useCelsius,
+                            insideTemp = uiState.insideTemp,
+                            outsideTemp = uiState.outsideTemp,
+                            insideTempIsCelsius = uiState.insideTempIsCelsius,
+                            outsideTempIsCelsius = uiState.outsideTempIsCelsius,
                             showTemperaturePicker = !isClarityPhev,
                             onStart = { temp ->
                                 executeOrShowPin("Start Climate") { pin -> viewModel.startClimate(pin, temp) }
@@ -727,12 +731,23 @@ fun CommandButton(
 fun ClimateControl(
     status: String,
     useCelsius: Boolean,
+    insideTemp: Int? = null,
+    outsideTemp: Int? = null,
+    insideTempIsCelsius: Boolean = false,
+    outsideTempIsCelsius: Boolean = false,
     showTemperaturePicker: Boolean = true,
     onStart: (Int) -> Unit,
     onStop: () -> Unit
 ) {
     var temp by remember(useCelsius) { mutableIntStateOf(if (useCelsius) 22 else 72) }
     val isOn = status != "OFF"
+    val unitSuffix = if (useCelsius) "°C" else "°F"
+    val displayInsideTemp = insideTemp?.let {
+        DashboardViewModel.convertTemperature(it, sourceIsCelsius = insideTempIsCelsius, targetIsCelsius = useCelsius)
+    }
+    val displayOutsideTemp = outsideTemp?.let {
+        DashboardViewModel.convertTemperature(it, sourceIsCelsius = outsideTempIsCelsius, targetIsCelsius = useCelsius)
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -746,6 +761,46 @@ fun ClimateControl(
                 Text("CLIMATE", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
 
+            if (displayInsideTemp != null || displayOutsideTemp != null) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    if (displayInsideTemp != null) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "Inside",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "$displayInsideTemp$unitSuffix",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                    if (displayOutsideTemp != null) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(
+                                text = "Outside",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "$displayOutsideTemp$unitSuffix",
+                                style = MaterialTheme.typography.headlineSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+                }
+            }
+
             if (showTemperaturePicker) {
                 Spacer(modifier = Modifier.height(16.dp))
 
@@ -755,7 +810,7 @@ fun ClimateControl(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(onClick = { temp-- }) { Icon(Icons.Default.Remove, contentDescription = "Decrease temperature") }
-                    Text("$temp${if (useCelsius) "°C" else "°F"}", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
+                    Text("$temp$unitSuffix", style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
                     IconButton(onClick = { temp++ }) { Icon(Icons.Default.Add, contentDescription = "Increase temperature") }
                 }
             }

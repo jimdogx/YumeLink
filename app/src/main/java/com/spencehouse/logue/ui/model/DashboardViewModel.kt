@@ -6,6 +6,7 @@ import android.util.Log
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.glance.appwidget.updateAll
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.spencehouse.logue.service.AuthService
@@ -13,6 +14,8 @@ import com.spencehouse.logue.service.VehicleService
 import com.spencehouse.logue.service.WearableSyncManager
 import com.spencehouse.logue.service.mqtt.AwsMqttClient
 import com.spencehouse.logue.service.schedule.ScheduledChargeManager
+import com.spencehouse.logue.widget.BatteryWidget
+import com.spencehouse.logue.widget.ClimateWidget
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.Job
@@ -85,6 +88,10 @@ class DashboardViewModel @Inject constructor(
                 useKpa = authService.sessionManager.useKpa,
                 savedPin = authService.sessionManager.pin,
                 gasRange = authService.sessionManager.cachedGasRange.takeIf { it >= 0 },
+                insideTemp = authService.sessionManager.cachedInsideTempFahrenheit,
+                outsideTemp = authService.sessionManager.cachedOutsideTempFahrenheit,
+                insideTempIsCelsius = false,
+                outsideTempIsCelsius = false,
                 scheduledChargeSummary = authService.selectedVin?.let { scheduledChargeManager.getScheduleSummary(it) },
             )
 
@@ -318,6 +325,33 @@ class DashboardViewModel @Inject constructor(
             else -> uiState.climateStatus
         }
 
+        val intTempObj = vehicleInfo?.optJSONObject("intTemp")?.takeIf { it.optBoolean("valid", true) }
+            ?: rb.optJSONObject("temperature")?.optJSONObject("cabin")
+        val extTempObj = vehicleInfo?.optJSONObject("extTemp")?.takeIf { it.optBoolean("valid", true) }
+            ?: rb.optJSONObject("temperature")?.optJSONObject("outside")
+            ?: rb.optJSONObject("temperature")?.optJSONObject("exterior")
+
+        val parsedInsideTemp = intTempObj?.optString("value")?.toDoubleOrNull()?.roundToInt()
+        val parsedOutsideTemp = extTempObj?.optString("value")?.toDoubleOrNull()?.roundToInt()
+
+        val insideTempIsCelsius = if (parsedInsideTemp != null) {
+            isCelsiusUnit(intTempObj.optString("unit")) ?: uiState.insideTempIsCelsius
+        } else {
+            uiState.insideTempIsCelsius
+        }
+        val outsideTempIsCelsius = if (parsedOutsideTemp != null) {
+            isCelsiusUnit(extTempObj.optString("unit")) ?: uiState.outsideTempIsCelsius
+        } else {
+            uiState.outsideTempIsCelsius
+        }
+
+        val insideTempInF = parsedInsideTemp?.let {
+            convertTemperature(it, sourceIsCelsius = insideTempIsCelsius, targetIsCelsius = false)
+        }
+        val outsideTempInF = parsedOutsideTemp?.let {
+            convertTemperature(it, sourceIsCelsius = outsideTempIsCelsius, targetIsCelsius = false)
+        }
+
         val parsedOdometer = odometerData?.optString("value")?.toDoubleOrNull()?.roundToInt()
             ?: odometerData?.optInt("value")?.takeIf { it > 0 }
         val odometerVal = parsedOdometer ?: uiState.odometer
@@ -346,6 +380,12 @@ class DashboardViewModel @Inject constructor(
         if (gasRangeInMiles != null) {
             authService.sessionManager.cachedGasRange = gasRangeInMiles
         }
+        if (insideTempInF != null) {
+            authService.sessionManager.cachedInsideTempFahrenheit = insideTempInF
+        }
+        if (outsideTempInF != null) {
+            authService.sessionManager.cachedOutsideTempFahrenheit = outsideTempInF
+        }
         authService.sessionManager.cachedChargeStatus = mainStatus
         authService.sessionManager.cachedIsPluggedIn = isPluggedIn
         authService.sessionManager.targetChargeLevel = targetLevel
@@ -372,9 +412,22 @@ class DashboardViewModel @Inject constructor(
             tirePressures = if (tireStatus != null) parseTires(tireStatus) else uiState.tirePressures,
             vehicleLocation = updatedLocation,
             climateStatus = updatedClimate,
+            insideTemp = parsedInsideTemp ?: uiState.insideTemp,
+            outsideTemp = parsedOutsideTemp ?: uiState.outsideTemp,
+            insideTempIsCelsius = insideTempIsCelsius,
+            outsideTempIsCelsius = outsideTempIsCelsius,
             lastUpdated = SimpleDateFormat("hh:mm:ss a", Locale.getDefault()).format(Date()),
             statusText = "Data Received"
         )
+
+        viewModelScope.launch {
+            try {
+                BatteryWidget().updateAll(context)
+                ClimateWidget().updateAll(context)
+            } catch (e: Exception) {
+                Log.w(tag, "Failed to update home screen widgets", e)
+            }
+        }
 
         val vin = authService.selectedVin
         if ((vin != null) && (battery != null) && (rangeInMiles != null)) {
@@ -457,6 +510,31 @@ class DashboardViewModel @Inject constructor(
                 sourceIsKm == targetIsKm -> value
                 targetIsKm -> (value * KM_PER_MILE).roundToInt()
                 else -> (value / KM_PER_MILE).roundToInt()
+            }
+        }
+
+        /**
+         * Determines whether a HondaLink temperature unit string represents Celsius (`true`),
+         * Fahrenheit (`false`), or is unknown/unspecified (`null`).
+         */
+        fun isCelsiusUnit(unit: String?): Boolean? {
+            val normalized = unit?.trim()?.lowercase(Locale.US) ?: return null
+            return when {
+                normalized.startsWith("c") -> true
+                normalized.startsWith("f") -> false
+                else -> null
+            }
+        }
+
+        /**
+         * Converts a temperature [value] from [sourceIsCelsius] to [targetIsCelsius] without
+         * double-converting when the source and target units already match.
+         */
+        fun convertTemperature(value: Int, sourceIsCelsius: Boolean, targetIsCelsius: Boolean): Int {
+            return when {
+                sourceIsCelsius == targetIsCelsius -> value
+                targetIsCelsius -> ((value - 32) * 5.0 / 9.0).roundToInt()
+                else -> ((value * 9.0 / 5.0) + 32.0).roundToInt()
             }
         }
 
@@ -575,6 +653,11 @@ class DashboardViewModel @Inject constructor(
                     climateStatus = status.uppercase(),
                     vehicles = mappedVehicles
                 )
+                try {
+                    ClimateWidget().updateAll(context)
+                } catch (e: Exception) {
+                    Log.w(tag, "Failed to update ClimateWidget", e)
+                }
             }.onFailure {
                 Log.e(tag, "Climate status request failed", it)
                 val errorMsg = it.message ?: ""
@@ -601,6 +684,11 @@ class DashboardViewModel @Inject constructor(
     fun toggleCelsius(value: Boolean) {
         authService.sessionManager.useCelsius = value
         uiState = uiState.copy(useCelsius = value)
+        viewModelScope.launch {
+            try {
+                ClimateWidget().updateAll(context)
+            } catch (_: Exception) {}
+        }
     }
 
     fun toggleKilometers(value: Boolean) {
@@ -625,6 +713,8 @@ class DashboardViewModel @Inject constructor(
 
         // This was the missing link - update persistent storage!
         authService.updateSelectedVin(vin)
+        authService.sessionManager.cachedInsideTempFahrenheit = null
+        authService.sessionManager.cachedOutsideTempFahrenheit = null
 
         val mappedVehicles = authService.vehicles.map {
             VehicleUiModel(
@@ -646,6 +736,10 @@ class DashboardViewModel @Inject constructor(
             batteryPercentage = null,
             range = null,
             gasRange = null,
+            insideTemp = null,
+            outsideTemp = null,
+            insideTempIsCelsius = false,
+            outsideTempIsCelsius = false,
             statusText = if (isEv) "Switching vehicles..." else "Not an EV. OnStar must be active.",
             vehicles = mappedVehicles,
             scheduledChargeSummary = scheduledChargeManager.getScheduleSummary(vin),
