@@ -25,6 +25,7 @@ import androidx.glance.appwidget.action.actionRunCallback
 import androidx.core.graphics.createBitmap
 import androidx.core.graphics.toColorInt
 import com.spencehouse.logue.R
+import com.spencehouse.logue.ui.model.DashboardViewModel
 
 class BatteryWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
@@ -32,12 +33,19 @@ class BatteryWidget : GlanceAppWidget() {
             val sessionManager = SessionManager(context)
             val battery = sessionManager.cachedBatteryPercentage
             val range = sessionManager.cachedRange
+            val useKilometers = sessionManager.useKilometers
             val chargeStatus = sessionManager.cachedChargeStatus
             val isPluggedIn = sessionManager.cachedIsPluggedIn
             val targetLimit = sessionManager.targetChargeLevel
             val voltage = sessionManager.cachedVoltage
             val batteryText = if (battery >= 0) "$battery%" else "--%"
-            val rangeText = if (range >= 0) "$range miles" else "-- miles"
+            val unitLabel = if (useKilometers) "km" else "miles"
+            val rangeText = if (range >= 0) {
+                val displayRange = DashboardViewModel.convertDistance(range, sourceIsKm = false, targetIsKm = useKilometers)
+                "$displayRange $unitLabel"
+            } else {
+                "-- $unitLabel"
+            }
             val statusText = when {
                 (isPluggedIn) && (voltage > 0) -> "$chargeStatus ${voltage}V"
                 isPluggedIn -> "Plugged In"

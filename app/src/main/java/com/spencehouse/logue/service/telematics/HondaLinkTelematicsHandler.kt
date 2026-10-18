@@ -291,15 +291,36 @@ class HondaLinkTelematicsHandler @Inject constructor(
                 ?: responseBody["hvBattery"]?.jsonObject?.get("soc")?.jsonPrimitive?.doubleOrNull?.roundToInt()
                 ?: fuelLevel?.get("currentLevel")?.jsonObject?.get("value")?.jsonPrimitive?.doubleOrNull?.roundToInt()
 
-            val range = vehicleInfo?.get("evRange")?.jsonObject?.get("value")?.jsonPrimitive?.doubleOrNull?.roundToInt()
+            val rawRange = vehicleInfo?.get("evRange")?.jsonObject?.get("value")?.jsonPrimitive?.doubleOrNull?.roundToInt()
                 ?: evStatus["evRange"]?.jsonPrimitive?.doubleOrNull?.roundToInt()
                 ?: evStatus["range"]?.jsonPrimitive?.doubleOrNull?.roundToInt()
                 ?: responseBody["evRange"]?.jsonObject?.get("value")?.jsonPrimitive?.doubleOrNull?.roundToInt()
                 ?: responseBody["evDriveRange"]?.jsonObject?.get("value")?.jsonPrimitive?.doubleOrNull?.roundToInt()
                 ?: fuelLevel?.get("driveRange")?.jsonObject?.get("value")?.jsonPrimitive?.doubleOrNull?.roundToInt()
 
-            val gasRange = vehicleInfo?.get("petRange")?.jsonObject?.get("value")?.jsonPrimitive?.doubleOrNull?.roundToInt()
+            val rawGasRange = vehicleInfo?.get("petRange")?.jsonObject?.get("value")?.jsonPrimitive?.doubleOrNull?.roundToInt()
                 ?: fuelLevel?.get("driveRange")?.jsonObject?.get("value")?.jsonPrimitive?.doubleOrNull?.roundToInt()
+
+            val rangeUnit = vehicleInfo?.get("evRange")?.jsonObject?.get("unit")?.jsonPrimitive?.content?.takeIf { it.isNotEmpty() }
+                ?: responseBody["evRange"]?.jsonObject?.get("unit")?.jsonPrimitive?.content?.takeIf { it.isNotEmpty() }
+                ?: responseBody["evDriveRange"]?.jsonObject?.get("unit")?.jsonPrimitive?.content?.takeIf { it.isNotEmpty() }
+                ?: responseBody["estRangePerTCL"]?.jsonObject?.get("unit")?.jsonPrimitive?.content?.takeIf { it.isNotEmpty() }
+                ?: fuelLevel?.get("driveRange")?.jsonObject?.get("unit")?.jsonPrimitive?.content?.takeIf { it.isNotEmpty() }
+                ?: responseBody["odometer"]?.jsonObject?.get("unit")?.jsonPrimitive?.content?.takeIf { it.isNotEmpty() }
+
+            val gasRangeUnit = vehicleInfo?.get("petRange")?.jsonObject?.get("unit")?.jsonPrimitive?.content?.takeIf { it.isNotEmpty() }
+                ?: fuelLevel?.get("driveRange")?.jsonObject?.get("unit")?.jsonPrimitive?.content?.takeIf { it.isNotEmpty() }
+                ?: rangeUnit
+
+            val rangeIsKm = rangeUnit?.trim()?.lowercase(Locale.US)?.let {
+                it.startsWith("km") || it.startsWith("kilo")
+            } ?: false
+            val gasRangeIsKm = gasRangeUnit?.trim()?.lowercase(Locale.US)?.let {
+                it.startsWith("km") || it.startsWith("kilo")
+            } ?: rangeIsKm
+
+            val range = rawRange?.let { if (rangeIsKm) (it / 1.609344).roundToInt() else it }
+            val gasRange = rawGasRange?.let { if (gasRangeIsKm) (it / 1.609344).roundToInt() else it }
 
             val plugRaw = vehicleInfo?.get("plugStatus")?.jsonObject?.get("value")?.jsonPrimitive?.content
                 ?: evStatus["plugStatus"]?.jsonPrimitive?.content
