@@ -150,25 +150,33 @@ class SessionManager @Inject constructor(@ApplicationContext context: Context) {
         get() = sharedPreferences.getInt("cached_voltage", -1)
         set(value) = sharedPreferences.edit { putInt("cached_voltage", value) }
 
-    var cachedInsideTempFahrenheit: Int?
-        get() = if (sharedPreferences.contains("cached_inside_temp_f")) {
-            sharedPreferences.getInt("cached_inside_temp_f", 0)
+    var cachedInsideTemp: Int?
+        get() = if (sharedPreferences.contains("cached_inside_temp")) {
+            sharedPreferences.getInt("cached_inside_temp", 0)
         } else {
             null
         }
         set(value) = sharedPreferences.edit {
-            if (value != null) putInt("cached_inside_temp_f", value) else remove("cached_inside_temp_f")
+            if (value != null) putInt("cached_inside_temp", value) else remove("cached_inside_temp")
         }
 
-    var cachedOutsideTempFahrenheit: Int?
-        get() = if (sharedPreferences.contains("cached_outside_temp_f")) {
-            sharedPreferences.getInt("cached_outside_temp_f", 0)
+    var cachedInsideTempIsCelsius: Boolean
+        get() = sharedPreferences.getBoolean("cached_inside_temp_is_celsius", false)
+        set(value) = sharedPreferences.edit { putBoolean("cached_inside_temp_is_celsius", value) }
+
+    var cachedOutsideTemp: Int?
+        get() = if (sharedPreferences.contains("cached_outside_temp")) {
+            sharedPreferences.getInt("cached_outside_temp", 0)
         } else {
             null
         }
         set(value) = sharedPreferences.edit {
-            if (value != null) putInt("cached_outside_temp_f", value) else remove("cached_outside_temp_f")
+            if (value != null) putInt("cached_outside_temp", value) else remove("cached_outside_temp")
         }
+
+    var cachedOutsideTempIsCelsius: Boolean
+        get() = sharedPreferences.getBoolean("cached_outside_temp_is_celsius", false)
+        set(value) = sharedPreferences.edit { putBoolean("cached_outside_temp_is_celsius", value) }
 
     fun getWeeklyChargeScheduleJson(vin: String): String? {
         return sharedPreferences.getString("weekly_charge_schedule_$vin", null)
@@ -176,5 +184,13 @@ class SessionManager @Inject constructor(@ApplicationContext context: Context) {
 
     fun saveWeeklyChargeScheduleJson(vin: String, json: String) {
         sharedPreferences.edit { putString("weekly_charge_schedule_$vin", json) }
+    }
+
+    fun getWeeklyClimateScheduleJson(vin: String): String? {
+        return sharedPreferences.getString("weekly_climate_schedule_$vin", null)
+    }
+
+    fun saveWeeklyClimateScheduleJson(vin: String, json: String) {
+        sharedPreferences.edit { putString("weekly_climate_schedule_$vin", json) }
     }
 }

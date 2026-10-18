@@ -65,11 +65,21 @@ fun LogueAppNavigation(isLoggedIn: Boolean) {
                 },
                 onNavigateToScheduleCharging = {
                     navController.navigate("schedule_charging")
+                },
+                onNavigateToScheduleClimate = {
+                    navController.navigate("schedule_climate")
                 }
             )
         }
         composable("schedule_charging") {
             com.spencehouse.logue.ui.ScheduledChargingScreen(
+                onNavigateBack = {
+                    navController.popBackStack()
+                }
+            )
+        }
+        composable("schedule_climate") {
+            com.spencehouse.logue.ui.ScheduledClimateScreen(
                 onNavigateBack = {
                     navController.popBackStack()
                 }

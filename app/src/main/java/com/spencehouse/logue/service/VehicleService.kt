@@ -15,8 +15,10 @@ data class DashboardData(
     val batteryPercentage: Int,
     val range: Int,
     val gasRange: Int? = null,
-    val insideTempFahrenheit: Int? = null,
-    val outsideTempFahrenheit: Int? = null,
+    val insideTemp: Int? = null,
+    val insideTempIsCelsius: Boolean = false,
+    val outsideTemp: Int? = null,
+    val outsideTempIsCelsius: Boolean = false,
 )
 
 /**

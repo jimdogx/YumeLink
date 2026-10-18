@@ -157,3 +157,95 @@ fun WeeklyChargeSchedule.getNextEvent(nowMillis: Long = System.currentTimeMillis
 
     return candidates.minByOrNull { it.triggerTimeMillis }
 }
+
+@Serializable
+data class ClimateTimeSlot(
+    val id: Int,
+    val hour: Int = 7,
+    val minute: Int = 30,
+    val enabled: Boolean = true,
+)
+
+@Serializable
+data class ClimateDaySchedule(
+    val dayOfWeek: Int, // Calendar.SUNDAY (1) through Calendar.SATURDAY (7)
+    val enabled: Boolean = false,
+    val slots: List<ClimateTimeSlot> = defaultClimateDaySlots(),
+)
+
+@Serializable
+data class WeeklyClimateSchedule(
+    val vin: String = "",
+    val isScheduleEnabled: Boolean = false,
+    val notificationsEnabled: Boolean = true,
+    val targetTemperatureFahrenheit: Int = 72,
+    val targetTemperatureCelsius: Int = 22,
+    val days: List<ClimateDaySchedule> = defaultWeeklyClimateSchedule(),
+)
+
+data class ScheduledClimateEvent(
+    val triggerTimeMillis: Long,
+    val dayOfWeek: Int,
+    val targetHour: Int,
+    val targetMinute: Int,
+    val slotId: Int = 1,
+)
+
+fun defaultClimateDaySlots(): List<ClimateTimeSlot> = listOf(
+    ClimateTimeSlot(id = 1, hour = 7, minute = 30, enabled = true),
+    ClimateTimeSlot(id = 2, hour = 17, minute = 0, enabled = false),
+)
+
+fun defaultWeeklyClimateSchedule(): List<ClimateDaySchedule> = listOf(
+    ClimateDaySchedule(dayOfWeek = Calendar.SUNDAY, enabled = false, slots = defaultClimateDaySlots()),
+    ClimateDaySchedule(dayOfWeek = Calendar.MONDAY, enabled = false, slots = defaultClimateDaySlots()),
+    ClimateDaySchedule(dayOfWeek = Calendar.TUESDAY, enabled = false, slots = defaultClimateDaySlots()),
+    ClimateDaySchedule(dayOfWeek = Calendar.WEDNESDAY, enabled = false, slots = defaultClimateDaySlots()),
+    ClimateDaySchedule(dayOfWeek = Calendar.THURSDAY, enabled = false, slots = defaultClimateDaySlots()),
+    ClimateDaySchedule(dayOfWeek = Calendar.FRIDAY, enabled = false, slots = defaultClimateDaySlots()),
+    ClimateDaySchedule(dayOfWeek = Calendar.SATURDAY, enabled = false, slots = defaultClimateDaySlots()),
+)
+
+/**
+ * Calculates the next upcoming scheduled climate start event across all enabled days and slots.
+ * Returns null if the schedule is disabled or no enabled days have enabled start times.
+ */
+fun WeeklyClimateSchedule.getNextEvent(nowMillis: Long = System.currentTimeMillis()): ScheduledClimateEvent? {
+    if (!isScheduleEnabled || days.none { it.enabled }) return null
+
+    val candidates = mutableListOf<ScheduledClimateEvent>()
+    val nowCal = Calendar.getInstance().apply { timeInMillis = nowMillis }
+
+    // Check each day starting from today (offset 0) through 7 days ahead
+    for (offset in 0..7) {
+        val checkCal = (nowCal.clone() as Calendar).apply {
+            add(Calendar.DAY_OF_YEAR, offset)
+        }
+        val checkDayOfWeek = checkCal.get(Calendar.DAY_OF_WEEK)
+        val daySchedule = days.find { it.dayOfWeek == checkDayOfWeek && it.enabled } ?: continue
+
+        for (slot in daySchedule.slots) {
+            if (!slot.enabled) continue
+            val slotCal = (checkCal.clone() as Calendar).apply {
+                set(Calendar.HOUR_OF_DAY, slot.hour)
+                set(Calendar.MINUTE, slot.minute)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
+            if (slotCal.timeInMillis > nowMillis) {
+                candidates.add(
+                    ScheduledClimateEvent(
+                        triggerTimeMillis = slotCal.timeInMillis,
+                        dayOfWeek = checkDayOfWeek,
+                        targetHour = slot.hour,
+                        targetMinute = slot.minute,
+                        slotId = slot.id,
+                    )
+                )
+            }
+        }
+    }
+
+    return candidates.minByOrNull { it.triggerTimeMillis }
+}
+
